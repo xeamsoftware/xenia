@@ -79,3 +79,4 @@ export * from './ChangePassword';
 export * from './BasicCamera';
 export * from './ReactLoader';
 export * from './FeaturePopup';
+export * from './WelcomeModal';

@@ -22,7 +22,7 @@ import axios from 'axios';
 import Logo from '../Image/logo.png';
 import AartiDrugs from '../Image/AartiLogo-128.png'
 import { 
-    getWidthnHeight, MenuIcon, GradientText, WaveHeader, fontSizeH4, 
+    getWidthnHeight, WelcomeModal, GradientText, WaveHeader, fontSizeH4, 
     CommonModal, IOS_StatusBar, Spinner, getMarginTop, getMarginRight,
     AppUpdate, getMarginLeft, getMarginVertical, InOutButton, AnimatedFlatList,
     getMarginHorizontal, fontSizeH1, DummyFlatlist, SelfBirthday, FeaturePopup
@@ -96,7 +96,8 @@ import {extractBaseURL} from '../api/BaseURL';
                     checkBirthday: false,
                     userGender: '',
                     featureTimer: 5,
-                    animateGameIcon: new Animated.Value(1)
+                    animateGameIcon: new Animated.Value(1),
+                    showWelcomeModal: true
                 }
             this._refresh = this._refresh.bind(this);
             this.featureTimer = null;
@@ -672,7 +673,7 @@ import {extractBaseURL} from '../api/BaseURL';
         const {
             updateAvailable, updateButton, blinkerOpacity, alertTitle, subtitle, featureList, iOSLink,
             rotateIcon, dateOpacity, animateSubHeader, animateFlatListBounce, bounceFlatList, loading,
-            dashboardData, checkBirthday, userGender, featureTimer, animateGameIcon
+            dashboardData, checkBirthday, userGender, featureTimer, animateGameIcon, showWelcomeModal
         } = this.state;
         //console.log("STATUS BAR: ", getStatusBarHeight(true));
         // console.log("DATE 1: ", moment("30-04-2021 09:30 AM", "DD-MM-YYYY hh:mm A").valueOf());
@@ -842,6 +843,20 @@ import {extractBaseURL} from '../api/BaseURL';
                     androidURL={() => this.openGooglePlayStore()}
                     iOSURL={() => this.openAppHostIOS()}
                 />
+            }
+            {(showWelcomeModal) && (
+                <WelcomeModal 
+                    title={`Welcome, ${userObj.success.user.employee.fullname}`}
+                    designation={userObj.success.user.designation[0]['name']}
+                    subtitle={(
+                        `Congratulations on being part of the Team!\n\nThe whole XEAM Family welcomes you and we look forward to a successful journey with you.\n\nWelcome aboard!`
+                    )}
+                    profilePic={userImage}
+                    visible={showWelcomeModal}
+                    onDecline={() => this.setState({showWelcomeModal: false})}
+                />
+            )
+
             }
             <View style={{flex: 1}}>
             <PTRView onRefresh={this._refresh}>
