@@ -1,10 +1,11 @@
 import React, {Component} from 'react';
 import {
-    AsyncStorage, View, StyleSheet, TextInput, ActivityIndicator,
+    View, StyleSheet, TextInput, ActivityIndicator,
     Text, KeyboardAvoidingView, TouchableOpacity, TouchableWithoutFeedback, 
     Alert, Dimensions, Keyboard, Linking, Animated, Easing, ScrollView, 
     Platform, BackHandler, ToastAndroid, Image, ImageBackground, StatusBar
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import database from '@react-native-firebase/database';
 import {Actions} from 'react-native-router-flux';
 import ActionModal from 'react-native-modal';
@@ -13,7 +14,6 @@ import {connect} from 'react-redux';
 import DeviceInfo, {getDeviceId} from 'react-native-device-info';
 import axios from 'axios';
 import { getAppstoreAppMetadata } from "react-native-appstore-version-checker";
-// import AsyncStorage from '@react-native-community/async-storage';
 //import firebase  from './firebase';
 import RNFirebase from '@react-native-firebase/app';
 import firebase from './firebase';
@@ -68,7 +68,7 @@ class LoginPage extends Component {
             bgImage: new Animated.Value(0),
             xeamLogo: new Animated.Value(0),
             versionOpacity: new Animated.Value(0),
-            showSlider: false,
+            showSlider: true,
             sliderState: false,
             playStoreAppVersion: '',
             currentVersion: DeviceInfo.getVersion(),
@@ -100,6 +100,9 @@ class LoginPage extends Component {
                         "\nLIVE: ", liveLink, "\nTEST: ", testLink, "\nSERVER LINK: ", serverLink,
                         "\nONBOARDING LIVE: ", onboardingLive, "\nONBOARDING TEST: ", onboardingTest
                     )
+                    if(!this.state.sliderState && this.state.showSlider){
+                        this.setState({serverLink: this.state.testLink})
+                    }
                     AsyncStorage.setItem("onboardingURL", (showSlider && !sliderState)? onboardingTest : onboardingLive);
                 })
             });
@@ -126,9 +129,6 @@ class LoginPage extends Component {
                 }
             })
         })
-        if(!sliderState && showSlider){
-            this.setState({serverLink: this.state.testLink})
-        }
     }
 
     resetTimerFunction(){
@@ -203,7 +203,7 @@ class LoginPage extends Component {
                     .catch(err => {
                         this.initialize();
                         console.log("error occurred", err);
-                        Alert.alert('Error!', 'Close the app and try again');
+                        //Alert.alert('Error!', 'Close the app and try again');
                     });        
                 }else{
                     this.checkiOSUpdate();
@@ -233,9 +233,9 @@ class LoginPage extends Component {
             let status = null;
             if(error.response){
                 status = error.response.status;
-                Alert.alert("Error!", `Close the app and try again. Error Code: ${status}146`);
+                //Alert.alert("Error!", `Close the app and try again. Error Code: ${status}146`);
             }else{
-                Alert.alert("Error!", `Close the app and try again. ${error} API CODE: 146`);
+                //Alert.alert("Error!", `Close the app and try again. ${error} API CODE: 146`);
             }
         });
     }
@@ -428,7 +428,7 @@ class LoginPage extends Component {
 
   	login = async() =>{
         // console.log(isLoading);
-        console.log("I am inside login()")
+        console.log("I am inside login()", `${this.state.serverLink}/login`)
         const {employee_code,userPassword,isLoading,device_id,device_type, baseURL} = this.state;
         //	let reg = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/ ;
         if(employee_code==""){
@@ -799,7 +799,7 @@ class LoginPage extends Component {
                                                         if(device_id){
                                                             this.functionCombined();
                                                         }else{
-                                                            alert('If its taking too long. Close the app and try again.')
+                                                            //alert('If its taking too long. Close the app and try again.')
                                                         }
                                                     }}
                                                     style={[{borderRadius: 10},getWidthnHeight(45, 7)]}

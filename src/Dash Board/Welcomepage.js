@@ -1,10 +1,11 @@
 import React, {Component} from 'react';
 import {
-    AsyncStorage,StyleSheet, Text, LayoutAnimation,
+    StyleSheet, Text, LayoutAnimation,
     TouchableOpacity, View, Image, SafeAreaView, 
     Dimensions, Alert, Linking, TouchableWithoutFeedback,
     Platform, BackHandler, Animated, Easing, FlatList
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {connect} from 'react-redux';
 import moment from 'moment';
 import LinearGradient from 'react-native-linear-gradient';
@@ -97,7 +98,8 @@ import {extractBaseURL} from '../api/BaseURL';
                     userGender: '',
                     featureTimer: 5,
                     animateGameIcon: new Animated.Value(1),
-                    showWelcomeModal: true
+                    showWelcomeModal: false, 
+                    attendancePermission: {}
                 }
             this._refresh = this._refresh.bind(this);
             this.featureTimer = null;
@@ -334,7 +336,8 @@ import {extractBaseURL} from '../api/BaseURL';
 
     //Navigates the user to the Check In Screen                
     checkIn = (gradient, project) =>{
-        console.log("I am inside checkIn")
+        const { attendancePermission } = this.state;
+        console.log("I am inside checkIn", attendancePermission)
         //console.log("THIS>PROPS: ", this.props)
         // const _this = this;
         // this.showLoader();
@@ -352,12 +355,14 @@ import {extractBaseURL} from '../api/BaseURL';
             userName:userName,
             user_id:user_id,
             xyz,
+            details: attendancePermission,
             callFunction: this.continueAnimation.bind(this)
         });
     }
 
     //Navigates the user to the Check Out Screen                  
     checkOut = (gradient, project) =>{
+        const { attendancePermission } = this.state;
         console.log("I am inside checkOutPage")
         // const _this = this;
         // this.showLoader();
@@ -375,6 +380,7 @@ import {extractBaseURL} from '../api/BaseURL';
             userName:userName,
             user_id:user_id,
             xyz,
+            details: attendancePermission,
             callFunction: this.continueAnimation.bind(this)
         });
     }
@@ -498,7 +504,9 @@ import {extractBaseURL} from '../api/BaseURL';
                     return {color: color, on_date: item.on_date, first_punch: item.first_punch, last_punch: item.last_punch}
                 })
                 const singleDate = data.splice(0, 1)
-                context.setState({dashboard: json_obj.success.attendance_data, singleDate, doubleDate: data, showAllDates: false}, () => {
+                context.setState({
+                    dashboard: json_obj.success.attendance_data, singleDate, doubleDate: data, showAllDates: false, attendancePermission: json_obj.success.attd_permission
+                }, () => {
                     console.log("^^^### SPLICED DATA: ", _this.state.singleDate, "\n\n", _this.state.doubleDate)
                     _this.rotateIconFunction();
                 })
@@ -520,10 +528,17 @@ import {extractBaseURL} from '../api/BaseURL';
                             showBirthday = true;
                         }
                     }
-                    console.log("@@@ CHECK BIRTHDAY: ", currentMonth, currentDate, "\t", month, date, "\t", showBirthday, "\t", permissions_fir.success.user.employee.hasOwnProperty('birth_date'))
+                    //console.log("@@@ CHECK BIRTHDAY: ", currentMonth, currentDate, "\t", month, date, "\t", showBirthday, "\t", permissions_fir.success.user.employee.hasOwnProperty('birth_date'))
                     if(currentMonth === month && currentDate === date && showBirthday){
                         _this.setState({checkBirthday: true})
                     }
+                }
+                if(permissions_fir.success.hasOwnProperty('first_login')){
+                    _this.setState({showWelcomeModal: permissions_fir.success.first_login}, () => {
+                        permissions_fir.success.first_login = false;
+                        AsyncStorage.setItem('user_token', JSON.stringify(permissions_fir));
+                        AsyncStorage.setItem('userObj', JSON.stringify(permissions_fir));
+                    })
                 }
                 _this.continueAnimation();
             }
@@ -673,9 +688,13 @@ import {extractBaseURL} from '../api/BaseURL';
         const {
             updateAvailable, updateButton, blinkerOpacity, alertTitle, subtitle, featureList, iOSLink,
             rotateIcon, dateOpacity, animateSubHeader, animateFlatListBounce, bounceFlatList, loading,
-            dashboardData, checkBirthday, userGender, featureTimer, animateGameIcon, showWelcomeModal
+            dashboardData, checkBirthday, userGender, featureTimer, animateGameIcon, showWelcomeModal, attendancePermission
         } = this.state;
-        //console.log("STATUS BAR: ", getStatusBarHeight(true));
+        let markAttendance = false;
+        if(attendancePermission?.can_mark_attd){
+            markAttendance = attendancePermission.can_mark_attd;
+            console.log("@@@@@ ATTENDANCE PERMISSION: ", attendancePermission?.can_mark_attd);
+        }
         // console.log("DATE 1: ", moment("30-04-2021 09:30 AM", "DD-MM-YYYY hh:mm A").valueOf());
         // console.log("DATE 2: ", moment("30-04-2021 10:30 AM", "DD-MM-YYYY hh:mm A").valueOf());
         const scaleInterpolate = updateButton.interpolate({
@@ -772,7 +791,7 @@ import {extractBaseURL} from '../api/BaseURL';
         let userObj = JSON.parse(this.props.drawerProps);
         let user = userObj.success.project;
         const { dashboardScroller, dashboardQuickLinks, enableAttendance } = this.getDashboardPermissions();
-        console.log("STATUS BAR: ", calculate.width);
+        //console.log("STATUS BAR: ", userObj);
         const userImage = { uri: userObj.success.user.employee.profile_picture };
         const empNameArray = userObj.success.user.employee.fullname.split(' ');
         const totalHeight = getWidthnHeight(undefined, 100)
@@ -855,9 +874,7 @@ import {extractBaseURL} from '../api/BaseURL';
                     visible={showWelcomeModal}
                     onDecline={() => this.setState({showWelcomeModal: false})}
                 />
-            )
-
-            }
+            )}
             <View style={{flex: 1}}>
             <PTRView onRefresh={this._refresh}>
             <View style={[{justifyContent: 'space-between'}, getWidthnHeight(100, 89)]}>
@@ -972,9 +989,10 @@ import {extractBaseURL} from '../api/BaseURL';
                             <Animated.View style={[{borderColor: 'red', borderWidth: 0, justifyContent: 'center', alignItems: 'center'}, animateCheckIn, getWidthnHeight(31,7)]}>
                                 <InOutButton 
                                     title="CHECK IN"
+                                    disabled={(!markAttendance)? true : false}
                                     //gradient={['#7B6079', '#654062']}
                                     //gradient={['#387980', '#2F5D62']}
-                                    gradient={['#1089FF', '#1089FF']}
+                                    gradient={(!markAttendance)? ['#C4C4C4', '#C4C4C4'] : ['#1089FF', '#1089FF']}
                                     onPress={() => this.checkIn(gradient, this.state.project)}
                                     style={[{borderRadius: 5},getWidthnHeight(30, 6)]}
                                     textBoxStyle={[getWidthnHeight(30, 6)]}
@@ -983,9 +1001,10 @@ import {extractBaseURL} from '../api/BaseURL';
                             <Animated.View style={[{borderColor: 'red', borderWidth: 0, justifyContent: 'center', alignItems: 'center'}, animateCheckOut, getWidthnHeight(31, 7)]}>
                                 <InOutButton 
                                     title="CHECK OUT"
+                                    disabled={(!markAttendance)? true : false}
                                     //gradient={['#7B6079', '#654062']}
                                     //gradient={['#387980', '#2F5D62']}
-                                    gradient={['#1089FF', '#1089FF']}
+                                    gradient={(!markAttendance)? ['#C4C4C4', '#C4C4C4'] : ['#1089FF', '#1089FF']}
                                     onPress={() => this.checkOut(gradient, this.state.project)}
                                     style={[{borderRadius: 5},getWidthnHeight(30, 6)]}
                                     textBoxStyle={[getWidthnHeight(30, 6)]}

@@ -50,7 +50,7 @@ import {CommonModal, IOS_StatusBar, WaveHeader, DateSelector, getWidthnHeight, g
 const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window');
 const now = moment();
 const timeStamp = now.valueOf();
-
+const EWF = "Elite Workforce";
 export default class Leaves extends Component {
 
   constructor(props){
@@ -114,6 +114,7 @@ hideLoader = () => {
 show_leaves=async()=>{
   await this.extractLink();
   const {language_sec,from,to, baseURL}=this.state;
+  const apiLink = (this.props.projectName === EWF)? `${baseURL}/ewf/applied-leaves` : `${baseURL}/applied-leaves`;
   const context=this;
   const _this = this;
   this.showLoader();
@@ -139,15 +140,15 @@ xhr.addEventListener("readystatechange", function() {
     var leaves = json_obj.success.leaves;
     var message = leaves.messages;
     context.setState({mandatory:'0'})
-    console.log("json_obj",json_obj)
-     context.setState({leaves:leaves})
-     //context.props.navigation.navigate("AppliedLeaveDetailPage",{leaves:leaves});
-     {leaves.map((item) => {
-     return (
-          context.setState({message:item.messages})
-          )
-        })
-      }
+    console.log("$%%$%$$$%%$$",json_obj)
+    context.setState({leaves:leaves})
+    //context.props.navigation.navigate("AppliedLeaveDetailPage",{leaves:leaves});
+    //  {leaves.map((item) => {
+    //  return (
+    //       context.setState({message:item.messages})
+    //       )
+    //     })
+    //   }
      // context.setState({message:message})
  }else if(xhr.status === 204) {
   _this.hideLoader();
@@ -160,8 +161,7 @@ xhr.addEventListener("readystatechange", function() {
    _this.hideLoader();
  }
 });
-
-xhr.open("POST", `${baseURL}/applied-leaves`);
+xhr.open("POST", apiLink);
 xhr.setRequestHeader("Content-Type", "multipart/form-data");
 xhr.setRequestHeader("Authorization", "Bearer " + permissions_four);
 
@@ -383,7 +383,7 @@ renderScreenHeader(){
         {this.renderScreenHeader()}
       <View>
       <View style={[{height:'100%',top:'0%',backgroundColor:'white'}, getMarginTop(0)]}>
-      <Dialog
+      {/* <Dialog
         onDismiss={() => {
           this.setState({ slideAnimationDialog: false });
         }}
@@ -403,7 +403,7 @@ renderScreenHeader(){
           </View>
         )})}
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
            <View style={{alignItems:'center',}}>
          <LeaveSectionDesign/>
          </View>

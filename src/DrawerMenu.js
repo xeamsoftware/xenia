@@ -2,8 +2,9 @@ import * as React from 'react';
 import {
       LayoutAnimation, StyleSheet, View, Easing, Image,
       Text, ScrollView, UIManager, TouchableOpacity,
-      Platform, FlatList, AsyncStorage, Alert, Animated,
+      Platform, FlatList, Alert, Animated,
     } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {connect} from 'react-redux';
 import {ActionConst, Actions} from 'react-native-router-flux'; 
 import { ListItem, Avatar } from 'react-native-elements'
@@ -19,6 +20,8 @@ import {
     Spinner, GradientIcon
 } from './KulbirComponents/common';
 import { showGame } from './actions/index';
+
+const EWF = "Elite Workforce";
 const AnimateTouch = Animated.createAnimatedComponent(TouchableOpacity);
 var CustomAnimation = {
     // duration: 300,
@@ -28,100 +31,6 @@ var CustomAnimation = {
     //     springDamping: 0
     // }
 }
-
-class ExpandableItemComponent extends React.Component {
-    //Custom Component for the Expandable List
-    constructor() {
-        super();
-        this.state = {
-            image:'',
-            date:'',
-            wish:'',
-            isExpanded:false,
-            currentDate: new Date(),
-            markedDate: moment(new Date()).format("YYYY-MM-DD"),
-            id: null,
-            showSubCategory: false
-        };
-    }
-
-    UNSAFE_componentWillUpdate(){
-        LayoutAnimation.configureNext(CustomAnimation)
-    }
-
-    // componentDidUpdate(prevProps){
-    //   if(prevProps.selectedID === this.props.selectedID){
-    //     this.setState({showSubCategory: false})
-    //   }
-    // }
-
-    showSubCategory(){
-        //console.log("PROPS: ", this.props.selectedID)
-        const { selectedID, item, employer } = this.props;
-        let displayText = null;
-        if(item.id === selectedID){
-        const context = this;
-        //console.log("SHOW SUB");
-        
-        displayText = this.props.item.subcategory.map((item, key) => {
-        const red = Math.floor(Math.random() * 256);
-        const green = Math.floor(Math.random() * 256);
-        const blue = Math.floor(Math.random() * 256);
-        return(
-            <TouchableOpacity
-                key={key}
-                style={styles.content}
-                onPress={() => {
-                    console.log("***CURRENT SCENE: ", Actions.currentScene, "\n", "ACCESSING: ", item.type)
-                    if(Actions.currentScene !== item.type){
-                        Actions[item.type]({employer});
-                    }else {
-                        Actions.drawerClose();
-                    }
-                    //context.props.navObj.navigate(item.type)
-                }}
-            >
-                <View style={{flexDirection: 'row', justifyContent: 'flex-start', marginLeft: 10, borderColor: 'black', borderWidth: 0}}>
-                    <View style={{width: 35}}/>
-                    <View style={{borderColor: 'black', borderWidth: 0, flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
-                        <View style={[{width: 8, height: 8, backgroundColor: 'transparent', borderColor: `rgb(${(red)}, ${green}, ${blue})`, borderWidth: 2,borderRadius: 8, marginHorizontal: 0},
-                            {borderColor: 'black'}
-                        ]}/>
-                    </View>
-                    <View style={{width: 10}}/>
-                    <Text style={[{marginBottom: 20}, fontSizeH4()]}>{item.val}</Text>
-                </View>
-            </TouchableOpacity>
-        )})
-      }
-      return displayText;
-    }
-
-    render() {
-        const context = this;
-        //console.log("*****USER IMAGE ", this.props)
-        const {item} = this.props;
-        return (
-            <View>
-                {/*Header of the Expandable List Item*/}
-                <TouchableOpacity activeOpacity={0.8} onPress={this.props.onClick}>
-                    <ListItem>
-                        <Avatar containerStyle={{width: 20, height: 20, marginLeft: 5}} source={this.props.item.image}/>
-                        <ListItem.Content>
-                            <ListItem.Title style={[{fontWeight: 'bold', borderColor: 'black', borderWidth: 0, fontSize: fontSizeH4().fontSize + 1}, styles.boldFont, this.props.textColor]}>{this.props.item.category_name}</ListItem.Title>
-                        </ListItem.Content>
-                    </ListItem>  
-                </TouchableOpacity>
-                <View>
-                    {this.showSubCategory()}
-                </View>
-                <View style={{height: 0.75, backgroundColor: 'rgba(177,174,174, 0.35)'}}/>
-            </View>
-        );
-    }
-  }
-
-const menuLayout = getWidthnHeight(undefined, 100);
 
 class DrawerMenu extends React.Component {
     //Main View defined under this Class
@@ -223,9 +132,9 @@ class DrawerMenu extends React.Component {
                 if(_this.state.projectType === "Aarti Drugs Ltd"){
                     listDataSource.push(HOLIDAYS, SALARYSLIP)
                 }
-                else{
-                    listDataSource.push(TestScreen);
-                }
+                // else{
+                //     listDataSource.push(TestScreen);
+                // }
                 let checkGames = [];
                 checkGames = listDataSource.filter((item) => {
                     return (item.category_name === 'Games')
@@ -549,7 +458,13 @@ class DrawerMenu extends React.Component {
                                                                                     onPress={() => {
                                                                                         console.log("OPEN SCREEN: ", screen.type)
                                                                                         if(Actions.currentScene !== screen.type){
-                                                                                            Actions[screen.type]({projectName});
+                                                                                            if(screen.type === "ApplyForLeave" && projectName === EWF){
+                                                                                                Actions.applyLeaveEWF({projectName})
+                                                                                            }else if(screen.type === "AppliedLeaves" && projectName === EWF){
+                                                                                                Actions.appliedLeaveEWF({projectName})
+                                                                                            }else{
+                                                                                                Actions[screen.type]({projectName});
+                                                                                            }
                                                                                         }else {
                                                                                             Actions.drawerClose();
                                                                                         }
@@ -794,8 +709,8 @@ const TestScreen = {
     category_name: 'Test Screen',
     image: require('../src/Image/test.png'),
     subcategory: [
-        { id: '1', val: 'Test Screen', type: 'TestScreen'}, 
-        { id: '2', val: 'Another Test Screen', type: 'AnotherTest'}, 
+        { id: '1', val: 'Apply Leave', type: 'applyLeaveEWF'}, 
+        { id: '2', val: 'Applied Leaves', type: 'appliedLeaveEWF'}, 
         { id: '3', val: 'HTML View', type: 'HTMLView'}, 
         { id: '4', val: 'Login Test Page', type: 'LoginTestPage'}, 
         { id: '5', val: 'Swipe Test', type: 'SwipeTest'},

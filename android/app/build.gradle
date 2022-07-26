@@ -125,7 +125,8 @@ def enableHermes = project.ext.react.get("enableHermes", false);
 
 android {
     compileSdkVersion 30
-    
+    ndkVersion '24.0.8215888'
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -149,8 +150,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 30
         missingDimensionStrategy 'react-native-camera', 'general'
-        versionCode 50
-        versionName '2.4.8'
+        versionCode 51
+        versionName '2.4.9'
         multiDexEnabled true
     }
     dexOptions {
@@ -229,7 +230,7 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
     //implementation platform('com.google.firebase:firebase-bom:26.3.0')
     //implementation 'com.google.firebase:firebase-analytics'
-    implementation project(':@react-native-community_async-storage')
+    //implementation project(':@react-native-community_async-storage')
     //implementation "com.android.support:appcompat-v7:28.0.0"
     implementation project(':@mauron85_react-native-background-geolocation')
     implementation project(':bugsnag-react-native')

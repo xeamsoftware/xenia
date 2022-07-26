@@ -437,7 +437,7 @@ class Lead_List extends Component {
         if(searchName){
             this.searchLeadName(empArray, searchName, (dataArray) => {
                 if(dataArray !== [] && dataArray !== null && dataArray.length !== null && dataArray.length > 0){
-                        data = dataArray;
+                    data = dataArray;
                 }
             });
         }

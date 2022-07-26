@@ -90,6 +90,8 @@ import CouponsLeft from './CouponsProject/CouponsLeft';
 import ConsumedPaper from './CouponsProject/ConsumedPaper';
 import AddPaperConsumption from './CouponsProject/AddPaperConsumptions';
 import TicTacToe from './Games/Tictactoe';
+import ApplyLeaveEWF from './Ewf/LeaveManagement/ApplyLeave';
+import AppliedLeaveEWF from './Ewf/LeaveManagement/AppliedLeave';
 
 class RouterComponent extends Component{
     
@@ -238,6 +240,10 @@ class RouterComponent extends Component{
 
                         {/*=========== GAMES ===========*/}
                         <Scene key="tictactoe" component={TicTacToe}/>
+
+                        {/*=========== EWF CHECK IN-OUT ===========*/}
+                        <Scene key="applyLeaveEWF" component={ApplyLeaveEWF}/>
+                        <Scene key="appliedLeaveEWF" component={AppliedLeaveEWF}/>
 
                         {/*===========LOGOUT PAGE===========*/}
                         <Scene key="LogOutPage" component={LogOutPage}/>

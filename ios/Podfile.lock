@@ -793,7 +793,7 @@ SPEC CHECKSUMS:
   BVLinearGradient: e3aad03778a456d77928f594a649e96995f1c872
   DoubleConversion: cf9b38bf0b2d048436d9a82ad2abe1404f11e7de
   FBLazyVector: e686045572151edef46010a6f819ade377dfeb4b
-  FBReactNativeSpec: 648a43daee60a36c4f203bc06bfdc650bdf549b8
+  FBReactNativeSpec: 942ef079b1bae8a557bc26abc5980d9ffa0e4a34
   Firebase: 580d09e8edafc3073ebf09c03fd42e4d80d35fe9
   FirebaseAnalytics: bd10d7706ba8d6e01ea2816f8fe9e9b881cb0918
   FirebaseCore: 8138de860a90ca7eec5e324da5788fb0ebf1d93c
@@ -835,7 +835,7 @@ SPEC CHECKSUMS:
   react-native-get-random-values: 30b3f74ca34e30e2e480de48e4add2706a40ac8f
   react-native-google-maps: 2e2e697dab576abd5809d78cd74e775865b62bf7
   react-native-html-to-pdf: 95ffebf254a9a1e5aaacfcaf4116974096b060d8
-  react-native-image-picker: d39243cb717e7b666b9a602d23c5ed8e131d93a8
+  react-native-image-picker: febf8b5e300bedb47c9157b2b6434dc4f6137ab5
   react-native-location: 9c53c0957756f7d70e8fdc76b1c7ed85867c8d0b
   react-native-maps: 6e499eee4eabf422ba8b6f94e993cc768bf35153
   react-native-netinfo: e36c1bb6df27ab84aa933679b3f5bbf9d180b18f
@@ -854,7 +854,7 @@ SPEC CHECKSUMS:
   React-RCTVibration: 24600e3b1aaa77126989bc58b6747509a1ba14f3
   React-runtimeexecutor: a9904c6d0218fb9f8b19d6dd88607225927668f9
   ReactCommon: 149906e01aa51142707a10665185db879898e966
-  ReactNativeGetLocation: d6b15cb2a2023ab7703f756501bad86d3ecf6fea
+  ReactNativeGetLocation: 8517f44ae7364ac45fa3946f8bffeaa73594ff0d
   rn-fetch-blob: f525a73a78df9ed5d35e67ea65e79d53c15255bc
   RNCAsyncStorage: cb9a623793918c6699586281f0b51cbc38f046f9
   RNCMaskedView: f5c7d14d6847b7b44853f7acb6284c1da30a3459

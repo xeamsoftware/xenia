@@ -1,702 +1,724 @@
 import React from 'react';
 import {
-    StyleSheet, Text, TouchableOpacity,
-    View, ScrollView, FlatList,
-    TouchableHighlight, TextInput,
-    KeyboardAvoidingView, Animated, Platform
+    AsyncStorage, Alert, PermissionsAndroid, Image, PixelRatio, StyleSheet,
+    Text, TouchableOpacity, View, KeyboardAvoidingView, Keyboard, Dimensions,
+    TextInput, BackHandler
 } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { Dropdown } from 'react-native-material-dropdown';
-import FontAwesomeIcons from 'react-native-vector-icons/FontAwesome';
+import {connect} from 'react-redux';
 import {Actions} from 'react-native-router-flux';
-import {
-    CommonModal, IOS_StatusBar, getMarginTop, getMarginBottom, getWidthnHeight,fontSizeH4,
-    FloatingTitleTextInputField, getMarginVertical, DateSelector, WaveHeader, fontSizeH3, ItineraryModal,
-    TimePicker, RoundButton, RadioEnable, RadioDisable, AlertBox, DismissKeyboard, getMarginLeft, Date, MySwitch, getMarginRight
-} from '../KulbirComponents/common';
-const AnimateTextInput = Animated.createAnimatedComponent(TextInput);
-const AnimateTouch = Animated.createAnimatedComponent(TouchableOpacity);
+import ImagePicker from 'react-native-image-picker';
+import { withNavigation } from "react-navigation";
+import DeviceInfo from 'react-native-device-info';
+import RNAndroidLocationEnabler from 'react-native-android-location-enabler';
+import LinearGradient from 'react-native-linear-gradient';
+import MapView, {PROVIDER_GOOGLE, PROVIDER_DEFAULT} from 'react-native-maps';
+//import Geolocation from '@react-native-community/geolocation';
+import Geolocation from 'react-native-geolocation-service';
+import Utils from '../Utils';
+import {extractBaseURL} from '../api/BaseURL';
+import {getWidthnHeight, CommonModal, IOS_StatusBar, WaveHeader, getMarginTop, Spinner, getMarginLeft} from '../KulbirComponents/common/';
+import {cameraFile} from '../actions';
 
-export default class Travel_Approvals extends React.Component {
+const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window');
+const RANGE = 500;
 
-    constructor() {
-        super();
-        this.state = {
-            searchtext:'',
-            status:'',
-            placeholder:'Search here',
-            show: true,
-            showbox: true,
-            showsubmitbtn:false,
-            opid:'',
-            opacity:1,
-            backstatus:'',
-            full:true,
-            DATA : [
+    export async function request_camera_runtime_permission() {
+        try {
+            const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
                 {
-                    id: '01',
-                    from:'Travel Purpose',
-                    travelcode:'200700002',
-                    status:'Approved',
-                    to:'To',
-                    title: 'First Item',
-                    name:'Name',
-                    show:false,
-                    swbtn:true,
-                    swipe:true
+                    'title': 'XENIA Camera Permission',
+                    'message': 'XENIA App needs access to your Camera '
+                }
+            )
+            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+
+            }else {
+                Alert.alert("Camera Permission Not Granted");
+            }
+        }catch (err) {
+          console.warn(err)
+        }
+    }
+
+
+    class App extends React.Component {
+        constructor(props) {
+            super(props)
+            this.state = {
+                file:'',
+                file_sec:'',
+                comment:'Check-In',
+                type:'Check-In',
+                isMapReady:false,
+                latitude: null,
+                longitude: null,
+                latitudeDelta: '',
+                longitudeDelta: '',
+                receivedCurrentLocation:true,
+                loading: false,
+                animating: true,
+                location: null,
+                comment_error:'',
+                baseURL: null,
+                errorCode: null,
+                apiCode: null,
+                commonModal: false,
+                image: false,
+                data: null,
+                fileError: true,
+                Lat_LongError: true,
+                commentError: false,
+                buttonPressed: false,
+                anyError: function(){
+                  return (this.fileError === true || this.Lat_LongError === true || this.commentError === true)
                 },
-                {
-                    id: '02',
-                    from:'Travel Purpose',
-                    travelcode:'200700002',
-                    status:'Paid',
-                    to:'To',
-                    title: 'Second Item',
-                    name:'Name',
-                    show:false,
-                    swbtn:true,
-                    swipe:true
-                },
-                {
-                    id: '03',
-                    from:'Travel Purpose',
-                    travelcode:'200700002',
-                    status:'New',
-                    to:'To',
-                    title: 'Third Item',
-                    name:'Name',
-                    show:false,
-                    swipe:true,
-                    swbtn:true,
-                },
-                {
-                    id: '04',
-                    from:'Travel Purpose',
-                    travelcode:'200700002',
-                    status:'New',
-                    to:'To',
-                    title: 'First Item',
-                    name:'Name',
-                    show:false,
-                    swbtn:true,
-                    swipe:true
-                },
-                {
-                    id: '05',
-                    from:'Travel Purpose',
-                    travelcode:'200700002',
-                    status:'Back',
-                    to:'To',
-                    title: 'Second Item',
-                    name:'Name',
-                    show:false,
-                    swbtn:true,
-                    swipe:true
-                },
-                {
-                    id: '06',
-                    from:'Travel Purpose',
-                    travelcode:'200700002',
-                    status:'New',
-                    to:'To',
-                    title: 'Third Item',
-                    name:'Name',
-                    show:false,
-                    swbtn:true,
-                    swipe:true
-                },
-            ],
-            animatedWidth: new Animated.Value(0),
-            animatedHeight: new Animated.Value(0),
-            iconalign: new Animated.Value(0),
-            animateOpacity: new Animated.Value(1),
-            animateTextInputWidth: new Animated.Value(0),
-            animateTextInputHeight: new Animated.Value(0),
-            animatedlistHeight: new Animated.Value(0),
-            animatedlistWidth: new Animated.Value(0),
-            animateCommentWidth: new Animated.Value(0),
-            animateSubmitButton: new Animated.Value(0),
-            animateBoxOpacity: new Animated.Value(0)
+                allError: function(){
+                  return (this.fileError === false && this.Lat_LongError === false && this.commentError === false)
+                }
+            };
+            this.selectPhotoTapped = this.selectPhotoTapped.bind(this);
+        }
+
+    selectPhotoTapped() {
+        const options = {
+            quality: 0.5,
+            maxWidth: 400,
+            maxHeight: 400,
+            cameraType:'front',
+            storageOptions: {
+                waitUntilSaved: true,
+                cameraRoll: true,
+                skipBackup : true,
+            },
         };
-        this.arrayholder = this.state.DATA;
+        ImagePicker.launchCamera(options, (response)  => {
+            console.log('Response = ', response);
+            if (response.didCancel) {
+                console.log('User cancelled photo picker');
+            }else if (response.error) {
+                console.log('ImagePicker Error: ', response.error);
+            }else if (response.customButton) {
+                console.log('User tapped custom button: ', response.customButton);
+            }else {
+                let source = {uri:response.uri,type:response.type,name:response.fileName};
+                console.log(source)
+                // You can also display the image using data:
+                // let source = { uri: 'data:image/jpeg;base64,' + response.data };
+                this.setState({
+                    file: source,
+                    file_sec: response.data
+                }, () => console.log("IMAGE FILE: ", this.state.file));
+            }
+        });
     }
- 
 
-      // componentWillMount = () => {
-      //     this.borderanimated = new Animated.Value(0)
-      //     this.iconmargintop = new Animated.Value(0)
-      //     this.animation = new Animated.Value(0)
-      //     this.animatedlistHeight = new Animated.Value(0)
-      //     this.animatedlistWidth = new Animated.Value(0)
-      //     this.animatedswipWidth = new Animated.Value(10)
-      //     this.animatedopacity = new Animated.Value(1)
-      //     this.animatedmargin = new Animated.Value(100)
-      //     this.animatedcommentWidth = new Animated.Value(0)
-      //     this.animatedcommentHeight = new Animated.Value(0)
-      //     this.bordercommentanimated = new Animated.Value(0)
-      //  }
- 
-    /* To Animate Open Search Bar On click*/
-    /******/
-    animatedBox = () => {
-        this.setState({show:false}, () => {
-            const {animatedHeight, animatedWidth, iconalign, animateOpacity, animateTextInputWidth, animateTextInputHeight} = this.state;
-            Animated.timing(animatedWidth, {
-                toValue: getWidthnHeight(85).width,
-                duration: 700
-            }).start()
-            Animated.timing(animatedHeight, {
-                toValue: getWidthnHeight(undefined, 5).height,
-                duration: 10
-            }).start()
-            Animated.timing(animateTextInputWidth, {
-                toValue: getWidthnHeight(65).width,
-                duration: 700
-            }).start()
-            Animated.timing(animateTextInputHeight, {
-                toValue: getWidthnHeight(undefined, 4.8).height,
-                duration: 10
-            }).start()
-            Animated.timing(animateOpacity, {
-                toValue: 1,
-                duration: 30
-            }).start()
-            Animated.timing(iconalign, {
-                toValue: getMarginLeft(0).marginLeft,
-                duration: 700
-            }).start()
+    componentDidMount() {
+        const {addListener} = this.props.navigation;
+        //console.log("CAMERA: ", this.props.navigation.actions, "\n", "NAVIGATION: ", this.props.navigation, "\n")
+        this._unsubscribe = addListener('didFocus', async() => {
+            await this.extractLink();
+            this.findCoordinates();
+            if(this.props.file.file){
+                const filePath = this.props.file.file.uri
+                const splitArray = filePath.split('Camera/')
+                const fileData = {type: 'image/jpeg', name: splitArray[1], uri: filePath}
+                console.log("OBJECT ASSIGN: ", Object.assign({}, fileData))
+                this.setState({data: filePath}, () => {
+                    if(this.state.data){
+                        this.props.cameraFile(null)
+                    }
+                    console.log("FILE: ", this.state.data)
+                })
+                this.setState({image: true})
+                this.setState({fileError: false})
+                this.setState({file: fileData}, () => console.log("FILE DATA: ", this.state.file))
+            }
+            console.log("FILE: ", this.state.data)
+            console.log('********ComponentDidMount*********');
+            this._isMounted = true;
+            const context = this;
+            context.askPermissions(context);
         })
     }
-    /******/
 
-    /* To Animate Open Status Box On click*/
-    /******/
+    UNSAFE_componentWillUnmount(){
+        this._unsubscribe().remove();
+    }
 
-    animatedlistbox =(status, id)=>{
-        this.setState({
-            backstatus:status, showsubmitbtn:true
-            }, () => {
-                this.state.DATA.forEach(element => {
-                if(element.id === id && element.swipe === true){
-                element.show = true
-                this.setState({opid:selectedid, showbox: false}, () => this.listbox())
+    async calculateDistance(){
+        const { latitude, longitude, buttonPressed } = this.state;
+        this.setState({buttonPressed: true})
+        console.log("@@@ BEFORE: ", latitude, longitude)
+        await this.functionCombined();
+        console.log("### AFTER: ", latitude, longitude)
+        const R = 6371;
+        const xeniaLatitude = "26.743548960185258";
+        const xeniaLongitude = "80.94520378795231";
+        //const xeniaLatitude = "30.709934";
+        //const xeniaLongitude = "76.714763";
+        let dLat = this.deg2rad(latitude - xeniaLatitude);
+        let dLng = this.deg2rad(longitude - xeniaLongitude);
+        let a = Math.sin(dLat/2) * Math.sin(dLat/2) +  
+                Math.cos(this.deg2rad(xeniaLatitude)) * Math.cos(this.deg2rad(latitude)) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+        let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        let distance = R * c * 1000;
+        //console.log("@@@ DISTANCE: ", distance)
+        if(distance <= RANGE){
+            this.checkBlank();
+        }else{
+            Alert.alert("Location Too Far!!!", `Please ensure to remain within ${RANGE} meters of range from the office.`);
+            return;
+        }
+    }
+
+    deg2rad(deg){
+        return deg * (Math.PI/180)
+    }
+
+    async extractLink(){
+        await extractBaseURL().then((baseURL) => {
+            this.setState({baseURL}, () => console.log("EXTRACT LINK: ", this.state.baseURL))
+        })
+    }  
+
+    askPermissions(context) {
+        //Checking for the permission just after component loaded
+        async function requestLocationPermission() {
+            try {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION  
+                )
+                if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+                    console.log('granted');
+                    console.log('show location dialog if gps is off');
+                    //To Check, If Permission is granted
+                    RNAndroidLocationEnabler.promptForEnableLocationIfNeeded({ interval: 10000, fastInterval: 5000 })
+                        .then(data => {
+                            console.log('enabled or already enabled gps');
+                            // The user has accepted to enable the location services
+                            // data can be :
+                            //  - "already-enabled" if the location services has been already enabled
+                            //  - "enabled" if user has clicked on OK button in the popup
+                            Geolocation.getCurrentPosition(
+                                (position) => {
+                                    console.log("current position");
+                                    console.log(position);
+                                    if (context._isMounted) {
+                                        context.setState({
+                                            latitude: position.coords.latitude,
+                                            longitude: position.coords.longitude,
+                                            Lat_LongError: false
+                                        })
+                                    }
+                                },
+                                (error) => console.log(error.message),
+                                { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+                            );
+                        }).catch(err => {
+                            // The user has not accepted to enable the location services or something went wrong during the process
+                            // "err" : { "code" : "ERR00|ERR01|ERR02", "message" : "message"}
+                            // codes :
+                            //  - ERR00 : The user has clicked on Cancel button in the popup
+                            //  - ERR01 : If the Settings change are unavailable
+                            //  - ERR02 : If the popup has failed to open
+                            console.log(err)
+                            if (err && err.code === 'ERR00') {
+                                BackHandler.exitApp()
+                            }
+                        });
+                }else{
+                    console.log('permission denied');
+                    BackHandler.exitApp()
                 }
-            });
-        })
-    }
-
-    listbox =()=>{
-        const {animatedlistWidth, animateCommentWidth, animateSubmitButton, animateBoxOpacity} = this.state;
-        console.log("@@@ ENTERED LISTBOX")
-        Animated.parallel([
-            Animated.timing(animatedlistWidth, {
-                toValue: 1,
-                duration: 800
-            }),
-            Animated.timing(animateCommentWidth, {
-                toValue: 1,
-                duration: 800
-            }),
-            Animated.timing(animateSubmitButton, {
-              toValue: 1,
-              duration: 300
-            }),
-            Animated.timing(animateBoxOpacity, {
-              toValue: 1,
-              duration: 50
-            })
-        ]).start()
-    }
-
-    /******/
-
-    /* To Animate Hide Search Box On click*/
-    /******/
-    hideshow=()=>{
-        const {animatedHeight, animatedWidth, iconalign, animateOpacity, animateTextInputWidth, animateTextInputHeight} = this.state;
-        Animated.timing(animatedWidth, {
-            toValue: 0,
-            duration: 300
-        }).start()
-        Animated.timing(animatedHeight, {
-            toValue: 0,
-            duration: 300
-        }).start()
-        Animated.timing(animateTextInputWidth, {
-            toValue: 0,
-            duration: 300
-        }).start()
-        Animated.timing(animateTextInputHeight, {
-            toValue: 0,
-            duration: 300
-        }).start()
-        Animated.timing(animateOpacity, {
-            toValue: 0,
-            duration: 300
-        }).start()
-        Animated.timing(iconalign, {
-            toValue: 0,
-            duration: 300
-        }).start(() => this.setState({show:true}))
-    }
-    /******/
-
-    /* To Animate Hide Status Box On click*/
-    /******/
-
-    opacitybox = (id) => {
-        this.state.DATA.forEach(element => {
-            if(element.id === id){
-                element.show = false
-                this.listclose()
-            //this.close(id);
+            }catch (err){
+                console.log('error in runtime permission block');
+                console.warn(err)
             }
-        });
+        }
+        if (Utils.isAndroid()) {
+            //Calling the permission function
+            requestLocationPermission();
+        }
     }
 
-    listclose = () => {
-        const {animatedlistWidth, animateCommentWidth, animateSubmitButton, animateBoxOpacity} = this.state;
-        Animated.parallel([
-          Animated.timing(animatedlistWidth, {
-              toValue: 0,
-              duration: 400
-          }),
-          Animated.timing(animateCommentWidth, {
-              toValue: 0,
-              duration: 400
-          }),
-          Animated.timing(animateSubmitButton, {
-              toValue: 0,
-              duration: 400
-          }),
-          Animated.timing(animateBoxOpacity, {
-              toValue: 0,
-              duration: 400
-          })
-        ]).start(() => this.setState({opid:selectedid}));
-    }
-    /******/
-
-    open = (item) => {
-        global.selectedid = ' '
+    hideLoader = () => {
+        this.setState({ loading: false });
     }
 
-    close = (id) => {
-        //this.renderLeftActions().close
+    showLoader = () => {
+        this.setState({ loading: true });
     }
 
-    set = (id) => {
-        this.state.DATA.forEach(element => {
-            if(element.id === id){
-                element.swipe = true
+    submit = async (latitude, longitude) => {
+        const {comment,baseURL} = this.state;
+        const _this = this;
+        this.showLoader();
+        const context=this;
+        var user_token= await AsyncStorage.getItem('user_token');
+        var permissions_fir= JSON.parse(user_token);
+        var permissions_four=permissions_fir.success.secret_token;
+        //var successToken = (this.props.successToken.token);
+        var userName = "Kulbir Singh";
+        var user_id = 175;
+        var xyz = "Check-In";
+        console.log("chIn",permissions_four);
+        console.log(comment);
+        console.log(user_id)
+        // context.props.navigation.navigate("monthlyreport",{successToken:successToken});
+        // context.props.navigation.navigate("monthlyreport",{user_id:user_id});
+        var data = new FormData();
+        data.append("latitude", latitude);
+        data.append("longitude", longitude);
+        data.append("comment", this.state.comment);
+        data.append("file", this.state.file);
+        data.append("type", xyz);
+        data.append("ver", "2.4.8");
+        data.append("auth", permissions_four);
+        data.append("user_id", user_id);
+        var xhr = new XMLHttpRequest();
+        xhr.withCredentials = true;
+        xhr.addEventListener("readystatechange", function () {
+            console.log(xhr.status)
+            console.log(xhr.readyState)
+            if (xhr.readyState !== 4) {
+                return;
             }
+            if (xhr.status === 200) {
+                _this.hideLoader();
+                console.log("Successfully200")
+                context.setState({file: undefined})
+                context.setState({comment: 'Check-In'})
+                //context.textComment.clear();
+                _this.setState({fileError: true})
+                _this.setState({Lat_LongError: true})
+                _this.setState({commentError: false})
+                _this.setState({buttonPressed: false})
+                Alert.alert(
+                    userName.toUpperCase(), 
+                    "YOUR ATTENDANCE HAS BEEN SUCCESSFULLY SAVED", 
+                    [{
+                        text: 'OK', 
+                        //onPress: () => _this.props.callFunction()
+                    }]
+                );   
+                //context.props.navigation.navigate("First");
+                Actions.First();
+            }else{
+                _this.hideLoader();
+                _this.findCoordinates();
+                var error = xhr.responseText;
+                console.log("error",error)
+                _this.setState({errorCode: xhr.status})
+                _this.setState({apiCode: "004"})
+                _this.setState({commonModal: true})
+                //_this.setState({file: undefined})
+                //_this.setState({comment: 'In'})
+                //_this.textComment.clear();
+                //_this.setState({fileError: true})
+                //_this.setState({Lat_LongError: true})
+                //_this.setState({commentError: false})
+                _this.setState({buttonPressed: false})
+                if(error=='{"validation_error":{"comment":["The comment field is required."],"file":["The file field is required."]}}'){
+                  Alert.alert("PLEASE FILL ALL COMPONENTS","1) TAKE PICTURE\n2) WRITE COMMENT\n3)WAIT FOR LOADING MAP",[{text:'OK'}]);
+                }if(error == '{"message":"Unauthenticated."}'){
+                  Alert.alert("Session Expired\n" , "Please log in again");
+                } 
+                if(error == '{"validation_error":{"comment":["The comment field is required."]}}'){
+                  Alert.alert('The comment field is required.')
+                }
+                if(error == '{"validation_error":{"file":["The file field is required."]}}'){
+                  Alert.alert('The file field is required.')
+                }
+                if(error == '{"validation_error":{"type":["The type field is required."]}}'){
+                  Alert.alert('The type field is required.')
+                }
+                if(error == '{"validation_error":{"longitude":["The longitude field is required."]}}'){
+                  Alert.alert('The longitude field is required.')
+                }
+                if(error == 'The Internet connection appears to be offline.'){
+                  Alert.alert('The Internet connection appears to be offline.')
+                }
+            }
+            console.log("abc",this.responseText);
         });
+        xhr.open("POST", `${baseURL}/attendance-location`);
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.setRequestHeader("Content-Type", "multipart/form-data");
+        xhr.setRequestHeader("Authorization", "Bearer " + permissions_four);
+        xhr.send(data);
     }
 
-    onPress=()=>{
-        const newData = this.arrayholder.filter((item)=>{
-            return item.id.match(this.state.searchtext);
-        })
-        this.setState({ DATA: newData});
-    }
-  
-    ondrop=()=>{
-        const newData = this.arrayholder.filter((item)=>{
-            return item.status === this.state.status
-        }).filter((item)=>{
-            return item.id.match(this.state.searchtext);
-        })
-        this.setState({ DATA: newData });
+    hide = () => {
+        const a= Keyboard.dismiss();
     }
 
-    /* On Swipe Render*/
-    /******/
+    functionCombined() {
+        const anyError = this.state.anyError();
+        const allError = this.state.allError();
+        if(anyError){
+            Alert.alert("Please fill the fields highlighted in RED")
+        }
+        if(allError){
+            Keyboard.dismiss();
+            this.findCoordinates(true);
+        }
+    }
 
-    renderLeftActions = (progress,id,show,swipe,swbtn) => {
-        console.log("ARGUMENTS: ", progress, id, show, swipe, swbtn)
-        global.selectedid = id
-        const {animatedlistWidth, animateCommentWidth, animateSubmitButton, animateBoxOpacity} = this.state;
-        const widthInterpolate = animatedlistWidth.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, getWidthnHeight(60).width]
-        })
-        const commentInterpolate = animateCommentWidth.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, getWidthnHeight(55).width]
-        })
-        const animatedStyle = {
-            width: widthInterpolate,
-            height: getWidthnHeight(undefined, 9).height,
-            opacity: animateBoxOpacity
+    error(){
+        if(this.state.file == null){
+            Alert.alert('The file field is required.')
         }
-        const commentStyle = {
-            width: commentInterpolate
-        }
-        const statusStyle = {
-            width: widthInterpolate
-        }
-        const submitButtonStyle = {
-            opacity: animateSubmitButton
-        }
+    }
+
+    findCoordinates = (call = false) => {
+        Geolocation.getCurrentPosition(
+            (position) => {
+                const latitude = JSON.stringify(position.coords.latitude);
+                const longitude = JSON.stringify(position.coords.longitude);
+                // console.log(latitude);
+                // console.log(longitude);
+                if(call === true){
+                    this.setState({latitude: null, longitude: null, Lat_LongError: true}, () => {
+                        if(!this.state.latitude && !this.state.longitude){
+                            this.submit(latitude, longitude);
+                        }
+                    });
+                }else{
+                    this.setState({
+                        latitude: latitude, longitude: longitude, Lat_LongError: false
+                    });
+                }
+                // this.setState({ location });
+            },
+            error => Alert.alert("Error !", error.message, [{
+                text: 'Go Back',
+                onPress: () => Actions.pop()
+            }]),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+        );
+    };
+
+    renderHeader(){
         return (
-            <Animated.View style ={[{borderColor: 'pink', borderWidth: 0}, getMarginTop(0.5), getWidthnHeight(85, 9)]} >
-                {swipe?
-                    <View>  
-                        <View style ={[{flexDirection:'row', borderColor: 'red', borderWidth: 0, alignItems: 'flex-start'}, getWidthnHeight(85, 9)]}>
-                            <View style={[{borderColor: 'black', borderWidth: 0}, getWidthnHeight(25, 7), getMarginLeft(2)]}>  
-                                <TouchableHighlight underlayColor="#3280E4" onPress= {()=>this.animatedlistbox('Approved', id)} style={[{borderRadius:5, borderWidth:0, backgroundColor:'#009E00', justifyContent:'center'}, getWidthnHeight(21)]}>
-                                    <View style={[{alignItems:'center'}]}>   
-                                    <Text style = {{padding:0.5,color:'white'}}>Approved</Text>
-                                    </View> 
-                                </TouchableHighlight>
-                                <TouchableHighlight underlayColor="#3280E4" onPress= {() =>this.animatedlistbox('Rejected', id)} style={[{borderRadius:5, borderWidth:0, backgroundColor:'#EA3933', justifyContent:'center'}, getMarginTop(1), getWidthnHeight(21)]}>
-                                    <View style={[{alignItems:'center'}]}>   
-                                    <Text style = {{padding:0.5,color:'white'}}>Rejected</Text>
-                                    </View> 
-                                </TouchableHighlight>
-                            </View>
-        {(show)?
-        <Animated.View style = {[{borderWidth:0, borderColor: 'green', backgroundColor:'white',},getMarginLeft(0),getMarginTop(0), animatedStyle]}>
-            <Animated.View style ={[{flexDirection:'row', flex:1, justifyContent: 'space-between'}, statusStyle]}> 
-                <View>
-                {this.state.backstatus != ''?
-                <Text numberOfLines={1} style={[{alignItems:'center', borderColor: 'red', borderWidth: 0}, getMarginLeft(0)]}>Status : {this.state.backstatus}</Text>:
-                <Text>STATUS : {show}</Text>}</View>
-                <View>
-                <TouchableOpacity onPress={() => this.opacitybox(id)} style ={[{borderWidth: 0, borderColor: 'black', alignItems: 'center'}, , getWidthnHeight(10), getMarginRight(5)]}>
-                  <FontAwesomeIcons name='close' size={18} color={'black'}/>
-                </TouchableOpacity> 
-                </View>
-            </Animated.View> 
-            <AnimateTextInput
-              placeholder={'Comment'}
-              onFocus={() => this.setState({placeholder: ''})}
-              onBlur = {() => this.setState({placeholder: 'Search here'})}
-              onChangeText={(searchtext) => this.setState({searchtext})}  
-              value={this.state.searchtext}
-              backgroundColor='white'
-              style= {[{paddingLeft:5,borderWidth:0.8, borderColor:'#DBE8F8', borderRadius:0, padding:0}, commentStyle]}
-            />   
-            {this.state.showsubmitbtn? 
-              <AnimateTouch onPress={this.opacitybox} style ={[{borderWidth:0,borderRadius:5, backgroundColor:'#3280E2'},getMarginTop(0), submitButtonStyle, getWidthnHeight(20), getMarginLeft(36)]}>
-              <Text style={[{textAlign:'center', color:'white'}, fontSizeH4()]}>SUBMIT</Text>
-              </AnimateTouch>: null }
-        </Animated.View>  : null}
-        </View>
-        </View>:null}
-      </Animated.View>
-    );
-  };
-
-  /******/
-
-  
-  /* Render Flatlist*/
-  /******/
-
-
-  renderItem = ({ item }) => {
-    //const animatedopacity = {opacity: this.animatedopacity}
-    return( 
-        // {<Animated.View style={[item.id == this.state.opid? animatedopacity:{opacity:1},styles.flatlistcontainer, getMarginLeft(4)]}>}
-        <Animated.View style={[styles.flatlistcontainer, getMarginLeft(4)]}>
-        {/* {<Swipeable childrenContainerStyle ={{backgroundColor:'white'}} onSwipeableWillClose = {()=>this.close(item.id)} renderLeftActions= {(progress) => this.renderLeftActions(progress, item.id, item.show, item.swipe , item.swbtn)}>} */}
-        <Swipeable childrenContainerStyle ={{backgroundColor:'white'}} renderLeftActions= {(progress) => this.renderLeftActions(progress, item.id, item.show, item.swipe , item.swbtn)}>
-            <View style={[styles.triangleCorner]}/>
-            <View>
-                <Text style={[{marginTop:getMarginTop(-5).marginTop, color:'white'}, fontSizeH4(),getMarginLeft(1)]}>{item.id}</Text>       
-            </View>
-            <View style={[{flexDirection:'row', flex:1}]}>
-                <View style = {{flex:0.97}}>
-                    <Text style={[{color:'#3180E5', fontWeight:'500', fontSize: fontSizeH4().fontSize + 3 },getMarginTop(-4.8), getMarginLeft(10)]}>{item.name}</Text>
-                </View>
-                {(item.status === 'Approved')?
-                <View style={[{borderWidth:0, borderRadius:5, backgroundColor:'#029D01', justifyContent:'flex-end'}, getWidthnHeight(undefined,3), getMarginTop(-4.2)]}>
-                    <Text style={[{color:'#ffffff', paddingHorizontal:10, paddingVertical:1, fontStyle:'italic'}, fontSizeH4()]}>{item.status}</Text>
-                </View>:
-                (item.status === 'Paid')?
-                <View style={[{borderWidth:0, borderRadius:5, backgroundColor:'#EB3A32', justifyContent:'flex-end'}, getWidthnHeight(undefined,3), getMarginTop(-4.2)]}>
-                    <Text style={[{color:'#ffffff', paddingHorizontal:10, paddingVertical:1, fontStyle:'italic'}, fontSizeH4()]}>{item.status}</Text>
-                </View>:
-                (item.status === 'New')?
-                <View style={[{borderWidth:0, borderRadius:5, backgroundColor:'#00B7DB', justifyContent:'flex-end'}, getWidthnHeight(undefined,3), getMarginTop(-4.2)]}>
-                    <Text style={[{color:'#ffffff', paddingHorizontal:10, paddingVertical:1, fontStyle:'italic'}, fontSizeH4()]}>{item.status}</Text>
-                </View>:
-                <View style={[{borderWidth:0, borderRadius:5, backgroundColor:'#DE9222', justifyContent:'flex-end'}, getWidthnHeight(undefined,3), getMarginTop(-4.2)]}>
-                    <Text style={[{color:'#ffffff', paddingHorizontal:10, paddingVertical:1, fontStyle:'italic'}, fontSizeH4()]}>{item.status}</Text>
-                </View>
-                }
-            </View>
-            <View style ={[{flexDirection:'row'},getMarginLeft(6), getMarginTop(-1.6)]}>
-                <FontAwesomeIcons name='caret-right' size={23} color={'#3280E4'}/>  
-                <Text style={[{fontWeight:'bold'},getMarginLeft(2), styles.boldFont]}>{item.from}</Text>
-            </View>
-            <View style = {[{alignItems:'flex-start', flexDirection:'row'}, getMarginLeft(6), getMarginTop(0.6)]}>
-                <Text style = {[{color:'#565656', fontWeight:'600'} ,fontSizeH4()]}>CC: </Text>
-            <View style={{backgroundColor:'#DAE7F7'}}>
-                <Text style = {[{fontWeight:'600', fontStyle:'italic',fontSize: fontSizeH4().fontSize - 1}]}> {item.travelcode} </Text>
-            </View>
-            <View>
-                <Text style = {[{color:'#565656', fontWeight:'bold', fontSize: fontSizeH4().fontSize + 7}, styles.boldFont, getMarginTop(-1), getMarginLeft(7.5)]}>|</Text>
-            </View>
-                <Text style = {[{color:'#565656', fontWeight:'600'},fontSizeH4(),getMarginLeft(7.5)]}>Amount: </Text>
-            <View style={{backgroundColor:'#367FE6'}}>
-                <Text style = {[{color:'#fff', fontWeight:'600', fontStyle:'italic',fontSize: fontSizeH4().fontSize - 1}]}> {'3000/-'} </Text>
-            </View>
-            <TouchableHighlight underlayColor="#3280E4" onPress= {() =>console.log("Pressed")} style={{width: '8%',height: 25,borderRadius: 25/2, borderWidth:0, backgroundColor:'#DBE8F8', justifyContent:'center',marginLeft:getMarginLeft(7).marginLeft}}>
-                <View style={[{alignItems:'center'}]}>   
-                    <FontAwesomeIcons name='eye' size={16}/>
-                </View> 
-            </TouchableHighlight>
-            </View>
-        </Swipeable>
-        </Animated.View>     
-    )
-  };
-
-  /******/
-
-  /* Main Render */
-  /******/
-  render() {
-    let data = [{
-      value: 'Banana',
-    }, {
-      value: 'New',
-    }, {
-      value: 'Ne',
-    }];
-    const {animatedWidth, animatedHeight, iconalign, animateOpacity, animateTextInputWidth, animateTextInputHeight} = this.state;
-    const animatedStyle = { width: animatedWidth}
-    const animateTextInput = {width: animateTextInputWidth, height: animateTextInputHeight}
-    const iconmargin = {marginLeft: iconalign}
-    const interpolateOpacity = animateOpacity.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1]
-    })
-    const hideOpacity = {
-      opacity: interpolateOpacity
-    }
-    console.log('### ^^^WIDTH: ', animateTextInput, animatedStyle)
-    return (
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <View style = {styles.container}>
-          <WaveHeader
+            <WaveHeader
                 wave={Platform.OS ==="ios" ? false : false} 
                 //logo={require('../Image/Logo-164.png')}
                 menu='white'
-                title='Travel Claim Requests'
-                headerType = {'small'}
-                //version={`Version ${this.state.deviceVersion}`}
-          /> 
-          <View style={[{alignItems:'center'}, getMarginTop(1.5), fontSizeH3()]}>
-                <Text style = {{color:'#3381E6', textDecorationLine: 'underline',}}>Check Travel Pre Approval Status</Text>
-          </View>
-          <View style={[styles.MainContainer, getMarginTop(2)]}>
-            <View style = {[{flexDirection:'row', justifyContent:'center'},getMarginTop(2.5)]} >
-              <View style = {[styles.Dropbox, getMarginLeft(-1)]}>
-                <Dropdown
-                 containerStyle={[{justifyContent: 'center', borderColor: 'grey', borderWidth: 0, paddingLeft: 0, borderRadius: 10, marginTop:-5}, getWidthnHeight(88.5, 7)]}
-                 //  maxLength = {12}
-                 inputContainerStyle={[{borderBottomWidth:0, marginTop:4,alignSelf:'center'}, getWidthnHeight(40, 7.9)]}
-                 label={'Request Type'}
-                 data={data}
-                 //data={this.state.leadIndustryOptionsId}
-                 //valueExtractor={({id})=> id}
-                 //labelExtractor={({industry_name})=> industry_name}
-                 onChangeText={status => this.setState({ status }, this.ondrop)}
-                 //value={leadIndustryOptions_id}
-                 //baseColor = {(data)? colorTitle : 'grey'}
-                 //baseColor = {(leadIndustryOptions_id)? colorTitle : 'grey'}
-                 //  selectedItemColor='#aaa'
-                 //  textColor='#aaa'
-                 //  itemColor='#aaa'
-                 baseColor='grey'
-                 pickerStyle={{borderWidth: 0}}
-                 dropdownOffset={{ 'top': 25 }}
-                 fontSize = {13.5}
-                  />
-              </View>  
-              <View style = {[styles.Dropbox , getMarginLeft(2)]}>
-                 <Dropdown
-                 containerStyle={[{justifyContent: 'center', borderColor: 'grey', borderWidth: 0, paddingLeft: 0, borderRadius: 10, marginTop:-5}, getWidthnHeight(88.5, 7)]}
-                 //  maxLength = {12}
-                 inputContainerStyle={[{borderBottomWidth:0, marginTop:4,alignSelf:'center'}, getWidthnHeight(40, 7.9)]}
-                 label={'List Type'}
-                 data={data}
-                 //data={this.state.leadIndustryOptionsId}
-                 //valueExtractor={({id})=> id}
-                 //labelExtractor={({industry_name})=> industry_name}
-                 //onChangeText={leadIndustryOptions_id => this.setState({ leadIndustryOptions_id }, () => console.log("INDUSTRY: ", this.state.leadIndustryOptions_id))}
-                 //value={leadIndustryOptions_id}
-                 //baseColor = {(data)? colorTitle : 'grey'}
-                 //baseColor = {(leadIndustryOptions_id)? colorTitle : 'grey'}
-                 //  selectedItemColor='#aaa'
-                 //  textColor='#aaa'
-                 //  itemColor='#aaa'
-                 baseColor='grey'
-                 pickerStyle={{borderWidth: 0}}
-                 dropdownOffset={{ 'top': 25 }}
-                 fontSize = {13.5}
-                 />         
-              </View>  
-          </View>  
-          <DismissKeyboard>
-          <View style={[{alignItems:'center',justifyContent:'center'}, getWidthnHeight(100, 5), getMarginTop(2)]}>
-                {(this.state.show)?
-                  <TouchableOpacity style = {[{backgroundColor:'white',width: '25%', borderColor: 'red', borderWidth: 0},styles.Ancontainer]} onPress = {this.animatedBox}>  
-                      <Animated.View style={[{elevation: 15, width: getWidthnHeight(9).width,height: getWidthnHeight(9).width, borderRadius: getWidthnHeight(9).width, borderWidth:0, backgroundColor:'white', justifyContent:'center'}, iconmargin]}>
-                      <Animated.View style={[{alignItems:'center'}]}>   
-                          <FontAwesomeIcons name='search' size={20} color={'#3181E2'}/>
-                      </Animated.View>
-                      </Animated.View>
-                  </TouchableOpacity>
-                :
-                  <View style={[getMarginTop(0)]}>
-                  <Animated.View style={[{flexDirection: 'row', borderColor: '#DBE8F8', borderWidth: 1, borderRadius: 50, justifyContent: 'space-around', alignItems: 'center'}, animatedStyle, hideOpacity]}>
-                    <View style ={[getWidthnHeight(5), getMarginLeft(2)]}>
-                      <TouchableOpacity onPress = {this.hideshow}>
-                        <FontAwesomeIcons name='close' size={20} color={'#C4C4C4'}/>
-                      </TouchableOpacity>
-                    </View> 
-                    <AnimateTextInput
-                      placeholder={this.state.placeholder}
-                      onFocus={() => this.setState({placeholder: ''})}
-                      onBlur = {() => this.setState({placeholder: 'Search here'})}
-                      onChangeText={(searchtext) => this.setState({searchtext}, this.ondrop)}  
-                      value={this.state.searchtext}
-                      backgroundColor='white'
-                      style= {[{paddingLeft:10,borderWidth:0, borderColor:'#DBE8F8', borderRadius:50, padding:10}, animateTextInput, fontSizeH4()]}
-                    />  
-                    <TouchableOpacity style = {[{backgroundColor:'white'},styles.Ancontainer,]} onPress = {this.animatedBox}>  
-                        <Animated.View style={[{width: getWidthnHeight(9).width,height: getWidthnHeight(9).width, borderRadius: getWidthnHeight(9).width, borderWidth:0, borderColor: 'red', backgroundColor:'#3280E4', justifyContent:'center'}, iconmargin]}>
-                          <Animated.View style={[{alignItems:'center'}]}>   
-                              <FontAwesomeIcons name='search' size={20} color={'white'}/>
-                          </Animated.View>
-                        </Animated.View>
-                    </TouchableOpacity>
-                  </Animated.View>
-                  </View>
+                menuState={false}
+                title='Check In'
+            />
+        );
+    }
+
+    onDecline(){
+        this.setState({commonModal: false})
+    }
+
+    checkBlank(){
+        const {comment, loading} = this.state;
+        if(loading){
+            return;
+        }
+        this.setState({buttonPressed: true})
+        const check = comment.trim();
+        if(check){
+            this.functionCombined();
+        }else{
+            this.setState({commentError: true, comment: ''})
+            Alert.alert("Please fill the fields highlighted in RED")
+        }
+    }
+
+    render() {
+        //console.log("THIS<PROPS: ", this.props)
+        const {errorCode, apiCode, buttonPressed, fileError, Lat_LongError, commentError, loading} = this.state;
+        const animating = this.state.animating;
+        const context=this;
+        const card = {card: {width: viewportWidth, height: viewportHeight}};
+        var userName = "Kulbir Singh";
+        //console.log("THIS PROPS: ", this.props);
+        // var  coordinate=;
+        const latitude=this.state.latitude;
+        const longitude = this.state.longitude;
+        var office = {
+            latitude: Number("26.743548960185258"),
+            longitude: Number("80.94520378795231"),
+            latitudeDelta:.1,
+            longitudeDelta: .1,
+        }
+        var region = {
+            latitude: Number(this.state.latitude),
+            longitude: Number(this.state.longitude),
+            latitudeDelta:.1,
+            longitudeDelta: .1,
+        }
+        // const kayboard=this.state.KeyboardAvoidingView
+        let gradient = ['#039FFD', '#EA304F'];
+        const circleWidth = getWidthnHeight(50)
+        const circleHeight = {height: circleWidth.width}
+        return (
+            <View>
+                <KeyboardAvoidingView behavior="position" style={styles.container}>
+                    <IOS_StatusBar color={gradient} barStyle="light-content"/>
+                    <View style={{alignItems: 'center'}}>
+                        {this.renderHeader()}
+                    </View>
+                    <View>
+                        <View style={{flex: 1, alignItems: 'center', borderColor: 'red', borderWidth: 0}}>
+                            <View style={{alignItems: 'center', marginVertical: 20}}>
+                                {(!this.state.image)?
+                                    <View style={[{
+                                        borderRadius: 200, backgroundColor: '#69726F', alignItems: 'center', 
+                                        justifyContent: 'center', shadowColor: '#000000', elevation: 7, 
+                                        shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: {width: 0, height: 5},
+                                        borderWidth: (buttonPressed && fileError)? 3 : 1, 
+                                        borderColor: (buttonPressed && fileError)? 'red' : 'transparent',
+                                        borderStyle: (buttonPressed && fileError)? 'dotted' : 'solid'
+                                        }, circleWidth, circleHeight]}
+                                    >
+                                        <TouchableOpacity onPress={() => (loading)? null : Actions.camera()}>
+                                            <Image source={require('../Image/white-camera.png')} style={{width: 45, height: 45}}/>
+                                        </TouchableOpacity>
+                                    </View>
+                                : 
+                                    <View style={[{
+                                        borderRadius: circleWidth.width, backgroundColor: '#69726F', alignItems: 'center', 
+                                        justifyContent: 'center', shadowColor: '#000000', elevation: 7,
+                                        shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: {width: 0, height: 5}
+                                        }, circleWidth, circleHeight]}
+                                    >
+                                      <TouchableOpacity onPress={() => (loading)? null : Actions.camera()}>
+                                          <Image source={{uri: `${this.state.data}`}} style={[{borderRadius: circleWidth.width}, circleWidth, circleHeight]}/>
+                                      </TouchableOpacity>
+                                    </View>
+                                }
+                            </View>
+                            <View style={{alignItems: 'center'}}>
+                                <View style={[styles.MainContainer, {
+                                    borderWidth: (buttonPressed && Lat_LongError)? 2 : 1, 
+                                    borderColor: (buttonPressed && Lat_LongError)? 'red' : 'transparent',
+                                    borderStyle: (buttonPressed && Lat_LongError)? 'dotted' : 'solid'
+                                }]}>
+                                    <MapView
+                                        style={[styles.mapStyle, getWidthnHeight(90, 20)]}
+                                        region={region}
+                                        mapType={"standard"}
+                                        provider={PROVIDER_GOOGLE}
+                                        showsUserLocation={true}
+                                        zoomUserLocation={true}
+                                        zoomEnabled={true}
+                                        zoomControlEnabled={true}
+                                        showsMyLocationButton={true}
+                                        followsUserLocation={true}
+                                        showsCompass={true}
+                                        toolbarEnabled={true}
+                                    >
+                                        <MapView.Marker
+                                            coordinate={office}
+                                            title={"Office"}
+                                            description={"OFFICE LOCATION"}
+                                        />
+                                        <MapView.Marker
+                                            coordinate={region}
+                                            title={userName}
+                                            pinColor={"#21BF73"}
+                                            description={"YOUR LOCATION FOR ATTENDANCE"}
+                                        />
+                                    </MapView>
+                                </View>
+                                {Boolean(this.state.latitude && this.state.longitude) &&
+                                    <View style={[{flexDirection: 'row', justifyContent: 'space-between'}, getWidthnHeight(90)]}>
+                                        <Text style={{fontSize: 10}}>{`LATTITUDE: ${parseFloat(this.state.latitude).toFixed(3)}`}</Text>
+                                        <Text style={{fontSize: 10}}>{`LONGITUDE: ${parseFloat(this.state.longitude).toFixed(3)}`}</Text>
+                                    </View>
+                                }
+                            </View>
+                            <View style={[styles.commentbox, getWidthnHeight(90)]}>
+                                <TextInput
+                                    style={[styles.input, {
+                                      borderWidth: (buttonPressed && commentError)? 2 : 1, 
+                                      borderColor: (buttonPressed && commentError)? 'red' : 'transparent',
+                                      borderStyle: (buttonPressed && commentError)? 'dotted' : 'solid'
+                                    }]}
+                                    placeholder="COMMENT BOX"
+                                    autoCapitalize={'none'}
+                                    returnKeyType={'done'}
+                                    onChangeText={comment => {
+                                      this.setState({ comment })
+                                      this.setState({commentError: false})
+                                      if(comment === ''){
+                                        this.setState({commentError: true})
+                                      }
+                                    }}
+                                    editable={(loading)? false : true}
+                                    value={this.state.comment}
+                                    autoCorrect={false}
+                                    placeholderTextColor="black"
+                                />
+                            </View>
+                            <View style={{alignItems:'center'}}>
+                                <TouchableOpacity onPress={() => this.calculateDistance()}>
+                                    <View style={{justifyContent: 'center', alignItems: 'center'}}>
+                                        <LinearGradient 
+                                            start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+                                            colors={gradient}
+                                            style={[styles.button, getWidthnHeight(40, 8)]}
+                                        >
+                                            <Text style={{ color:'white',fontSize: 14, textAlign: 'center'}}>SUBMIT</Text>
+                                        </LinearGradient>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+                            <CommonModal 
+                                title="Something went wrong"
+                                subtitle= {`Error Code: ${errorCode}${apiCode}`}
+                                visible={this.state.commonModal}
+                                onDecline={this.onDecline.bind(this)}
+                                buttonColor={['#0E57CF', '#25A2F9']}
+                            />
+                        </View>
+                        <View 
+                            style={[{
+                              backgroundColor: (loading)? 'rgba(0, 0, 0, 0.5)' : 'transparent', alignItems: 'center', justifyContent: 'center'
+                            }, StyleSheet.absoluteFill]} 
+                            pointerEvents={(loading)? 'auto' : 'none'}
+                        >
+                            {(loading) &&
+                                <Spinner loading={loading} style={[styles.loadingStyle, getWidthnHeight(45, 10), getMarginTop(-5), getMarginLeft(3)]} color='rgb(19,111,232)'/>
+                            }
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </View>   
+        )}
+    }
+
+    const styles = StyleSheet.create({
+        button: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 50,
+            shadowColor: '#000000',
+            marginTop: 10,
+            elevation: 7
+        },
+        buttonShadow: {
+            marginTop: 10,
+            marginLeft: 0,
+            borderTopLeftRadius: 50,
+            borderBottomRightRadius: 50
+        },
+        container: {
+            height:viewportHeight,
+            flex: 0,
+            flexDirection: 'column',
+            alignItems: 'center',
+            paddingTop:0,
+            marginBottom:0
+        },
+        avatarContainer: {
+            borderColor: 'transparent',
+            borderWidth: 5 / PixelRatio.get(),
+            justifyContent: 'center',
+            alignItems: 'center',
+            elevation: 7,
+        },
+        avatar: {
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: 10,
+            borderTopWidth: 1,
+            borderBottomWidth:1,
+            borderRightWidth:1,
+            borderLeftWidth:1,
+            width:viewportWidth,
+            height: viewportHeight / 3,
+        },
+        MainContainer: {
+            flex:0,
+            flexDirection:'row',
+            alignItems:'center',
+            margin:5,
+            borderRadius: 8,
+            shadowOffset:{  width: 0,  height: 5,  },
+            shadowColor: '#000000',
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+            elevation: 7,
+            zIndex: 1
+        },
+        commentbox: {
+            flex:0,
+            flexDirection:'row',
+            alignItems:'center',
+            shadowOffset:{  width: 0,  height: 5,  },
+            shadowColor: '#000000',
+            shadowOpacity: 0.3,
+            shadowRadius: 5,
+            elevation: 10,
+            marginTop: 20,
+            zIndex: 1
+        },
+        mapStyle: {
+            flex:0,
+            flexDirection:'row',
+            alignItems:'center',
+            margin:5,
+            borderRadius: 8,
+            borderTopWidth: 1,
+            borderBottomWidth:1,
+            borderRightWidth:1,
+            borderLeftWidth:1,
+            shadowOffset:{  width: 100,  height: 100,  },
+            shadowColor: '#000000',
+            shadowOpacity: 0,
+            shadowRadius: 10,
+            elevation: 7,
+        },
+        input: {
+            width:'100%',
+            borderRadius: 10,
+            backgroundColor: '#F0F8FF',
+            paddingLeft:20,
+            paddingRight:0,
+            paddingTop:20,
+            paddingBottom:20,
+            fontSize:15,
+            borderStyle:'dashed',
+            elevation: 5,
+        },
+        loader: {
+            ...Platform.select({
+                ios: {
+                    zIndex: 1,
                 }
-          </View>  
-          </DismissKeyboard>
-          <ScrollView>
-                <FlatList
-                    data={this.state.DATA}
-                    initialNumToRender = {this.state.DATA.length}
-                    renderItem={this.renderItem}
-                    keyExtractor={item => item.id}
-                /> 
-          </ScrollView>
-          </View>
-          </View>
-          </KeyboardAvoidingView>
-    )
-  }
-}
-
-/******/
-
-const styles = StyleSheet.create({
-  container: {
-    justifyContent: 'center',
-    backgroundColor: '#F5FCFF',
-    height:'100%'
-  },
-  MainContainer:{
-    flex: 1,
-    backgroundColor:'white',
-    borderTopLeftRadius:40,
-    borderTopRightRadius:40,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'black',
-        shadowOffset: {
-          width: 0,
-          height: 50,
+            })
         },
-        zIndex: 10
-      },
-      android: {
-        elevation: 15,
-      }
-    }),
-    shadowOpacity: 0.3,
-    shadowRadius: 40,
-  },
-  Dropbox:{
-    borderWidth: 1,
-    left:0,
-    width:getWidthnHeight(45).width,
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: 'black',
-    borderColor: '#C4C4C4',
-    marginTop:getMarginTop(1.5).marginTop
-  },
-  rectangletriangleCorner: {
-    width: getWidthnHeight(42).width,
-    height: 0,
-    backgroundColor: "transparent",
-    borderStyle: "solid",
-    borderRightWidth: 23,
-    borderTopWidth: 40,
-    borderRightColor: "transparent",
-    borderTopColor: "#307FE4",
-  }, 
-  flatlistcontainer:{
-    width:getWidthnHeight(91).width,
-    height:getWidthnHeight(undefined,12).height,
-    backgroundColor: '#FFFFFF',
-    borderWidth:0,
-    borderColor: '#C4C4C4',
-    marginTop:getMarginTop(2.5).marginTop,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'black',
-        shadowOffset: {
-          width: 0,
-          height: 50,
+        loadingStyle: {
+            flexDirection:'row', 
+            backgroundColor: '#EFEFEF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            //position: 'absolute', 
+            borderRadius: 10,      
+            shadowOffset:{width: 0,  height: 5},
+            shadowColor: '#000000',
+            shadowOpacity: 0.3,
+            shadowRadius: 5,
+            elevation: 10,
+            borderColor: 'red',
+            borderWidth: 0,
         },
-        zIndex: 10
-      },
-      android: {
-        elevation: 13,
-      }
-    }),
-    shadowOpacity: 0.3,
-    shadowRadius: 40,
-    borderColor: 'black',
-    borderWidth: 0
-  }, 
-  triangleCorner: {
-    width: 0,
-    height: 0,
-    backgroundColor: "transparent",
-    borderStyle: "solid",
-    borderRightWidth: 40,
-    borderTopWidth: 40,
-    borderRightColor: "transparent",
-    borderTopColor: "#307FE4",
-  }, 
-  Ancontainer: {
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  box: {
-      backgroundColor: 'white',
-      width: 0,
-      height: 0,
-      justifyContent:"center",
-      borderRadius:50,
-      borderWidth:0,
-      borderColor:'#DBE8F8'
-  },
-  boldFont: {
-    ...Platform.select({
-      android: {
-        fontFamily: ''
-      }
-    })
-  }
-});
+    });
+
+    const mapStateToProps = (state) => {
+        //console.log("***Welcome***MAP STATE TO PROPS: ", state.cameraFile)
+        return {
+            file: state.cameraFile
+        }
+    }
+
+    const appComponent = withNavigation(App);
+export default connect(mapStateToProps, {cameraFile})(appComponent);

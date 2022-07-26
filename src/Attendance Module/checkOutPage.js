@@ -21,6 +21,9 @@ import {cameraFile} from '../actions';
 
 const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window');
 
+const LATITUDE_DELTA = 0.00922;
+const LONGITUDE_DELTA = 0.00421;
+
     export async function request_camera_runtime_permission() {
         try {
             const granted = await PermissionsAndroid.request(
@@ -55,7 +58,7 @@ const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window'
                 latitudeDelta: '',
                 longitudeDelta: '',
                 receivedCurrentLocation:true,
-                loading: false,
+                loading: true,
                 animating: true,
                 baseURL: null,
                 errorCode: null,
@@ -172,6 +175,14 @@ const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window'
                                             latitude: position.coords.latitude,
                                             longitude: position.coords.longitude,
                                             Lat_LongError: false
+                                        }, () => {
+                                            const { details } = context.props;
+                                            console.log("FIND COORDINATES: ", context.state.latitude, context.state.longitude)
+                                            if(details.office_latitude && details.office_longitude){
+                                                context.calculateDistance(context.state.latitude, context.state.longitude);
+                                            }else{
+                                                context.hideLoader();
+                                            }
                                         })
                                     }
                                 },
@@ -211,6 +222,38 @@ const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window'
 
         showLoader = () => {
             this.setState({ loading: true });
+        }
+
+        async calculateDistance(latitude, longitude){
+            const { details } = this.props;
+            const R = 6371; //Radius of earth in KM
+            //console.log("***COORDINATES*** ", coordinates)
+            let dLat = this.deg2rad(details['office_latitude'] - latitude)
+            let dLng = this.deg2rad(details['office_longitude'] - longitude)
+            let a = Math.sin(dLat/2) * Math.sin(dLat/2) +  
+                    Math.cos(this.deg2rad(latitude)) * Math.cos(this.deg2rad(details['office_latitude'])) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+            let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            let num = R * c * 1000; //Distance in Meters
+            let distance = Number(num.toFixed(1))
+            console.log("***DISTANCE*** ", distance, latitude, longitude)
+            if(distance > details.permit_distance){
+                Alert.alert("Alert", `You should remain within ${details.permit_distance} meters from your office`, [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            this.hideLoader();
+                            Actions.pop();
+                        }
+                    }
+                ]);
+            }else{
+                this.hideLoader();
+            }
+        }
+    
+        deg2rad(deg){
+            return deg * (Math.PI/180)
         }
 
         submit = async (latitude, longitude) => {
@@ -329,8 +372,14 @@ const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window'
                             }
                         });
                     }else{
-                        this.setState({
-                            latitude: latitude, longitude: longitude, Lat_LongError: false
+                        this.setState({latitude: latitude, longitude: longitude, Lat_LongError: false}, () => {
+                            const { details } = this.props;
+                            console.log("FIND COORDINATES: ", this.state.latitude, this.state.longitude)
+                            if(details.office_latitude && details.office_longitude){
+                                this.calculateDistance(this.state.latitude, this.state.longitude);
+                            }else{
+                                this.hideLoader();
+                            }
                         });
                     }
                     // this.setState({ location });
@@ -384,6 +433,7 @@ const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window'
 
         render() {
             const {errorCode, apiCode, buttonPressed, fileError, Lat_LongError, commentError, loading} = this.state;
+            const { details } = this.props;
             const animating = this.state.animating
             const context=this;
             const {navigate} = this.props.navigation;
@@ -393,11 +443,11 @@ const { width: viewportWidth, height: viewportHeight } = Dimensions.get('window'
             // var  coordinate=;
             const latitude=this.state.latitude;
             const longitude = this.state.longitude;
-            var region= {
-                latitude: Number(this.state.latitude),
-                longitude: Number(this.state.longitude),
-                latitudeDelta:.1,
-                longitudeDelta: .1,
+            var region = {
+                latitude: Number(details.office_latitude),
+                longitude: Number(details.office_longitude),
+                latitudeDelta: LATITUDE_DELTA,
+                longitudeDelta: LONGITUDE_DELTA,
             }
             // const kayboard=this.state.KeyboardAvoidingView
             const {project, button} = this.props;

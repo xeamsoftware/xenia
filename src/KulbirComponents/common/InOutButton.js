@@ -12,9 +12,9 @@ class InOutButton extends Component{
             }
     }
     render(){
-        const {title, onPress, gradient, style, textBoxStyle} = this.props;
+        const {title, onPress, gradient, style, textBoxStyle, disabled = false} = this.props;
         return (
-            <TouchableOpacity onPress={onPress}>
+            <TouchableOpacity disabled={disabled} onPress={onPress}>
                 <View style={{justifyContent: 'center', alignItems: 'center'}}>
                     <LinearGradient 
                         start={{x: 0, y: 0}} end={{x: 1, y: 0}}
